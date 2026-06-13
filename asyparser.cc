@@ -92,8 +92,8 @@ absyntax::file *doParse(size_t (*input) (char* bif, size_t max_size),
       }
     }
 
-em.error(nullPos);
-  if(!interact::interactive) {
+    em.error(nullPos);
+    if(!interact::interactive) {
     em << "error: could not load module '" << filename << "'";
     em << "\n  Searched in:";
     for (auto const& p : settings::searchPath)
