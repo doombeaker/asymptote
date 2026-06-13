@@ -13,8 +13,16 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HTTPS_PROXY=${HTTPS_PROXY} \
     http_proxy=${http_proxy} \
     https_proxy=${https_proxy} \
-    NO_PROXY=${NO_PROXY} \
-    no_proxy=${no_proxy}
+    NO_PROXY="${NO_PROXY},mirrors.aliyun.com" \
+    no_proxy="${no_proxy},mirrors.aliyun.com"
+
+# ── 0. Apt mirror ──────────────────────────────────────────────────
+# Always use aliyun mirrors for apt (fast in China, no proxy needed).
+# Other steps (cmake/vcpkg/github) still go direct or via proxy.
+RUN sed -i \
+      -e 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' \
+      -e 's|http://security.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' \
+      /etc/apt/sources.list
 
 # ── 1. Build dependencies ──────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -32,6 +40,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     perl \
     python3 \
+    python3-jinja2 \
+    libncursesw5-dev \
     libxinerama-dev \
     libxcursor-dev \
     xorg-dev \
@@ -39,6 +49,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libwayland-dev \
     libtirpc-dev \
     ccache \
+    autoconf \
+    automake \
+    autoconf-archive \
+    libtool \
+    libltdl-dev \
     && if [ "$WITH_DOCS" = "1" ]; then \
          apt-get install -y --no-install-recommends \
            texlive texlive-latex-extra texinfo ghostscript; \
@@ -53,6 +68,15 @@ RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nu
         > /etc/apt/sources.list.d/kitware.list \
     && apt-get update && apt-get install -y --no-install-recommends cmake \
     && rm -rf /var/lib/apt/lists/*
+
+# ── 2.5 Ninja (v1.13.2+) ──────────────────────────────────────────
+# apt's ninja-build 1.10.x is too old for vcpkg compiler detection.
+# Pre-install newer version so vcpkg doesn't download its own at runtime.
+RUN curl -fsSL "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux.zip" \
+      -o /tmp/ninja.zip && \
+    unzip -o /tmp/ninja.zip -d /usr/local/bin && \
+    rm /tmp/ninja.zip && \
+    chmod +x /usr/local/bin/ninja
 
 # ── 3. vcpkg ──────────────────────────────────────────────────────
 # zip is required by bootstrap-vcpkg.sh (not installed by default)
@@ -77,6 +101,43 @@ RUN for i in 1 2 3 4 5; do \
       echo "bootstrap failed, retrying in 10s..."; sleep 10; \
     done
 
+# ── 3.5 Pre-build vcpkg dependencies ──────────────────────────────
+# Pre-compile all vcpkg deps during image build so cmake configure
+# at runtime finds them installed and skips download+compile entirely.
+# ── 3.25 gettext (needed by libxcrypt autotools configure) ──────────
+RUN apt-get update && apt-get install -y --no-install-recommends gettext \
+    && rm -rf /var/lib/apt/lists/*
+
+# vcpkg's cmake-get-vars passes DLLTOOL='CMAKE_DLLTOOL-NOTFOUND' (literal)
+# when dlltool is not found. This causes libxcrypt's configure to fail
+# because it sees non-empty DLLTOOL and tries to execute the bogus string.
+# Symlink a no-op so configure treats it as "available but unused".
+RUN ln -s /usr/bin/true /usr/local/bin/dlltool
+
+# libxcrypt autotools configure needs 'make' during config.status bootstrapping.
+RUN apt-get update && apt-get install -y --no-install-recommends make \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY vcpkg.json /tmp/vcpkg-deps/vcpkg.json
+RUN echo 'set(VCPKG_BUILD_TYPE release)' >> "$VCPKG_ROOT"/triplets/x64-linux.cmake
+RUN cd /tmp/vcpkg-deps && \
+    ( "$VCPKG_ROOT"/vcpkg install \
+        --triplet x64-linux \
+        --x-feature=readline \
+        --x-feature=curl \
+        --x-feature=threading \
+        --x-feature=gsl \
+        --x-feature=eigen3 \
+        --x-feature=fftw3 \
+        --x-feature=lsp \
+        --x-install-root=/opt/vcpkg-deps \
+      || ( echo "=== LIBCRYPT BUILD LOGS ==="; \
+           find /opt/vcpkg/buildtrees/libxcrypt -name "*.log" \
+             -exec echo "--- {} ---" \; -exec tail -100 {} \; ; \
+           exit 1 ) \
+    ) && \
+    rm -rf /tmp/vcpkg-deps
+
 # ── 4. ccache ─────────────────────────────────────────────────────
 ENV CCACHE_DIR=/home/builder/.ccache \
     CCACHE_MAXSIZE=1G
@@ -89,10 +150,10 @@ WORKDIR /workspace
 # Usage
 # ═══════════════════════════════════════════════════════════════════
 #
-# --- Default build (requires internet access) ---
+# --- Build (apt → aliyun mirrors, other downloads need internet) ---
 #   docker build --target builder -t asy-builder .
 #
-# --- Proxy build (proxy runs on host, use --network host) ---
+# --- Build with proxy (proxy on host, use --network host) ---
 #   docker build --target builder --network host \
 #     --build-arg http_proxy=http://127.0.0.1:33210 \
 #     --build-arg https_proxy=http://127.0.0.1:33210 \
@@ -101,17 +162,17 @@ WORKDIR /workspace
 # --- Skip docs (~500MB smaller) ---
 #   docker build --target builder --build-arg WITH_DOCS=0 -t asy-builder .
 #
-# --- Compile asy ---
+# --- Compile asy (no proxy needed at runtime) ---
 #   docker run --rm -v "$PWD":/workspace asy-builder sh -c '
-#     cmake --preset linux/release/ci/with-ccache &&
-#     cmake --build --preset linux/release --target asy-with-basefiles -j$(nproc)
+#     cmake --preset linux/release/ci/with-ccache/docker &&
+#     cmake --build --preset linux/release/ci/with-ccache/docker --target asy-with-basefiles -j$(nproc)
 #   '
 # Output: cmake-build-linux/release/asy + base/
 #
 # --- Build docs (requires WITH_DOCS=1) ---
 #   docker run --rm -v "$PWD":/workspace asy-builder sh -c '
-#     cmake --preset linux/release/ci/with-ccache &&
-#     cmake --build --preset linux/release/ci/with-ccache --target docgen -j$(nproc)
+#     cmake --preset linux/release/ci/with-ccache/docker &&
+#     cmake --build --preset linux/release/ci/with-ccache/docker --target docgen -j$(nproc)
 #   '
 # Output: cmake-build-linux/release/docbuild/asymptote.pdf
 
