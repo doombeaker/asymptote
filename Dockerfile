@@ -54,10 +54,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     autoconf-archive \
     libtool \
     libltdl-dev \
-    && if [ "$WITH_DOCS" = "1" ]; then \
-         apt-get install -y --no-install-recommends \
-           texlive texlive-latex-extra texinfo ghostscript; \
-       fi \
+     && if [ "$WITH_DOCS" = "1" ]; then \
+          apt-get install -y --no-install-recommends \
+            texlive texlive-latex-extra texlive-plain-generic texinfo ghostscript; \
+        fi \
     && rm -rf /var/lib/apt/lists/*
 
 # ── 2. CMake >= 3.27 ──────────────────────────────────────────────
