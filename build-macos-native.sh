@@ -74,10 +74,15 @@ done
 # ── 4. 确保使用 Homebrew 的 bison ────────────────────────────────
 # macOS 自带的 bison 2.3 太旧，需要 3.x
 export PATH="/opt/homebrew/opt/bison/bin:$PATH"
-if ! bison --version | grep -q "GNU Bison 3"; then
+# 清除 shell 命令缓存，否则 bash 仍可能找到系统自带的 bison 2.3
+hash -r 2>/dev/null || true
+if ! bison --version | grep -q "GNU Bison) 3"; then
     echo "错误：未能找到 Homebrew 安装的 Bison 3.x"
+    echo "尝试路径: /opt/homebrew/opt/bison/bin/bison"
+    ls -la /opt/homebrew/opt/bison/bin/bison 2>/dev/null || echo "该路径不存在"
     exit 1
 fi
+echo "  ✓ 使用 Bison: $(bison --version | head -1)"
 
 # ── 5. 设置编译环境变量 ──────────────────────────────────────────
 echo ""
@@ -114,8 +119,6 @@ CONFIGURE_ARGS=(
     --disable-vulkan
     --disable-gl
     --disable-lsp
-    CC=clang
-    CXX=clang++
 )
 
 # Apple Silicon 不需要 universal binary；Intel Mac 也不需要
