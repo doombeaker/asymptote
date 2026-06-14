@@ -5,8 +5,10 @@ errortests/templates.asy:10:3: error: Parametrized imports disallowed to reduce 
 errortestNonTemplate.asy:1:1: error: expected 'typedef import(<types>);'
 errortests/templates.asy:12:3: error: could not load module 'errortestNonTemplate'
   Searched in:
+    .
+    /home/runner/.asy
     /home/runner/work/asymptote/asymptote/cmake-build-linux/release-compact-zero/base
-    /examples
+    /usr/local/share/doc/asymptote/examples
 
   The module 'errortestNonTemplate.asy' was not found in any search path.
   If you built asy from source, set ASYMPTOTE_DIR to the directory
@@ -18,8 +20,10 @@ errortests/templates.asy:16:3: error: Expected 'typedef import(<types>);'
 errortests/templates.asy:20:34: error: too few types passed: got 2, expected 3
 errortests/templates.asy:20:3: error: could not load module 'errortestBrokenTemplate'
   Searched in:
+    .
+    /home/runner/.asy
     /home/runner/work/asymptote/asymptote/cmake-build-linux/release-compact-zero/base
-    /examples
+    /usr/local/share/doc/asymptote/examples
 
   The module 'errortestBrokenTemplate.asy' was not found in any search path.
   If you built asy from source, set ASYMPTOTE_DIR to the directory
@@ -29,8 +33,10 @@ errortests/templates.asy:20:3: error: could not load module 'errortestBrokenTemp
 errortests/templates.asy:22:51: error: template argument name does not match module: passed T, expected C
 errortests/templates.asy:22:3: error: could not load module 'errortestBrokenTemplate'
   Searched in:
+    .
+    /home/runner/.asy
     /home/runner/work/asymptote/asymptote/cmake-build-linux/release-compact-zero/base
-    /examples
+    /usr/local/share/doc/asymptote/examples
 
   The module 'errortestBrokenTemplate.asy' was not found in any search path.
   If you built asy from source, set ASYMPTOTE_DIR to the directory
@@ -40,8 +46,10 @@ errortests/templates.asy:22:3: error: could not load module 'errortestBrokenTemp
 errortests/templates.asy:24:41: error: template argument name does not match module: passed C, expected B
 errortests/templates.asy:24:3: error: could not load module 'errortestBrokenTemplate'
   Searched in:
+    .
+    /home/runner/.asy
     /home/runner/work/asymptote/asymptote/cmake-build-linux/release-compact-zero/base
-    /examples
+    /usr/local/share/doc/asymptote/examples
 
   The module 'errortestBrokenTemplate.asy' was not found in any search path.
   If you built asy from source, set ASYMPTOTE_DIR to the directory
@@ -56,8 +64,10 @@ errortests/templates.asy:40:26: error: non-statically nested types cannot be use
 errortests/templates.asy:46:28: error: template argument name does not match module: passed B, expected A
 errortests/templates.asy:46:3: error: could not load module 'errortestTemplate'
   Searched in:
+    .
+    /home/runner/.asy
     /home/runner/work/asymptote/asymptote/cmake-build-linux/release-compact-zero/base
-    /examples
+    /usr/local/share/doc/asymptote/examples
 
   The module 'errortestTemplate.asy' was not found in any search path.
   If you built asy from source, set ASYMPTOTE_DIR to the directory
@@ -67,8 +77,10 @@ errortests/templates.asy:46:3: error: could not load module 'errortestTemplate'
 errortests/templates.asy:48:28: error: template argument name does not match module: passed C, expected A
 errortests/templates.asy:48:3: error: could not load module 'errortestTemplate'
   Searched in:
+    .
+    /home/runner/.asy
     /home/runner/work/asymptote/asymptote/cmake-build-linux/release-compact-zero/base
-    /examples
+    /usr/local/share/doc/asymptote/examples
 
   The module 'errortestTemplate.asy' was not found in any search path.
   If you built asy from source, set ASYMPTOTE_DIR to the directory
@@ -78,8 +90,10 @@ errortests/templates.asy:48:3: error: could not load module 'errortestTemplate'
 errortests/templates.asy:50:35: error: template argument name does not match module: passed D, expected B
 errortests/templates.asy:50:3: error: could not load module 'errortestTemplate'
   Searched in:
+    .
+    /home/runner/.asy
     /home/runner/work/asymptote/asymptote/cmake-build-linux/release-compact-zero/base
-    /examples
+    /usr/local/share/doc/asymptote/examples
 
   The module 'errortestTemplate.asy' was not found in any search path.
   If you built asy from source, set ASYMPTOTE_DIR to the directory
@@ -89,8 +103,10 @@ errortests/templates.asy:50:3: error: could not load module 'errortestTemplate'
 errortests/templates.asy:52:28: error: template argument name does not match module: passed C, expected A
 errortests/templates.asy:52:3: error: could not load module 'errortestTemplate'
   Searched in:
+    .
+    /home/runner/.asy
     /home/runner/work/asymptote/asymptote/cmake-build-linux/release-compact-zero/base
-    /examples
+    /usr/local/share/doc/asymptote/examples
 
   The module 'errortestTemplate.asy' was not found in any search path.
   If you built asy from source, set ASYMPTOTE_DIR to the directory
@@ -100,8 +116,10 @@ errortests/templates.asy:52:3: error: could not load module 'errortestTemplate'
 errortests/templates.asy:54:28: error: too few types passed: got 1, expected 2
 errortests/templates.asy:54:3: error: could not load module 'errortestTemplate'
   Searched in:
+    .
+    /home/runner/.asy
     /home/runner/work/asymptote/asymptote/cmake-build-linux/release-compact-zero/base
-    /examples
+    /usr/local/share/doc/asymptote/examples
 
   The module 'errortestTemplate.asy' was not found in any search path.
   If you built asy from source, set ASYMPTOTE_DIR to the directory
@@ -111,8 +129,10 @@ errortests/templates.asy:54:3: error: could not load module 'errortestTemplate'
 errortests/templates.asy:56:28: error: too many types passed: got 3, expected 2
 errortests/templates.asy:56:3: error: could not load module 'errortestTemplate'
   Searched in:
+    .
+    /home/runner/.asy
     /home/runner/work/asymptote/asymptote/cmake-build-linux/release-compact-zero/base
-    /examples
+    /usr/local/share/doc/asymptote/examples
 
   The module 'errortestTemplate.asy' was not found in any search path.
   If you built asy from source, set ASYMPTOTE_DIR to the directory
