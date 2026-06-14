@@ -43,6 +43,16 @@ foreach(TEST_FILE IN LISTS TEST_FILES)
     string(REGEX REPLACE "[ \t\n]+$" "" ASY_STDERR_OUTPUT "${ASY_STDERR_OUTPUT}")
     string(REGEX REPLACE "[ \t\n]+$" "" EXPECTED_ERROR_OUTPUT "${EXPECTED_ERROR_OUTPUT}")
 
+    # Strip indented continuation lines (search paths, help text) from
+    # multi-line error messages.  These contain environment-specific paths
+    # that differ between build configurations.
+    string(REGEX REPLACE "\n  [^\n]*" "" ASY_STDERR_OUTPUT "${ASY_STDERR_OUTPUT}")
+    string(REGEX REPLACE "\n  [^\n]*" "" EXPECTED_ERROR_OUTPUT "${EXPECTED_ERROR_OUTPUT}")
+
+    # Collapse redundant blank lines left after stripping continuation text.
+    string(REGEX REPLACE "\n\n+" "\n" ASY_STDERR_OUTPUT "${ASY_STDERR_OUTPUT}")
+    string(REGEX REPLACE "\n\n+" "\n" EXPECTED_ERROR_OUTPUT "${EXPECTED_ERROR_OUTPUT}")
+
     if (NOT ASY_STDERR_OUTPUT STREQUAL EXPECTED_ERROR_OUTPUT)
         message(WARNING "Error test FAILED: ${TEST_NAME}")
         message(STATUS "  Expected:\n${EXPECTED_ERROR_OUTPUT}")
