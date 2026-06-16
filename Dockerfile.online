@@ -89,6 +89,14 @@ COPY cmake-build-linux/release/base /usr/local/share/asymptote/
 
 ENV ASYMPTOTE_SYSDIR=/usr/local/share/asymptote
 
+# ── Clear proxy so runtime does not fail when proxy is gone ────
+ENV HTTP_PROXY="" \
+    HTTPS_PROXY="" \
+    http_proxy="" \
+    https_proxy="" \
+    NO_PROXY="" \
+    no_proxy=""
+
 # ── 3. Examples + configure ─────────────────────────────────────────
 COPY examples/ /home/coder/workspace/examples/
 
