@@ -92,6 +92,10 @@ COPY cmake-build-linux/release/base /usr/local/share/asymptote/
 
 ENV ASYMPTOTE_SYSDIR=/usr/local/share/asymptote
 
+# ── Global Asymptote configuration for Chinese support ───────────────
+RUN printf 'import settings;\ntex="xelatex";\nusepackage("ctex");\n' \
+    > /usr/local/share/asymptote/config.asy
+
 # ── Clear proxy so runtime does not fail when proxy is gone ────
 ENV HTTP_PROXY="" \
     HTTPS_PROXY="" \
