@@ -355,6 +355,33 @@ pair picture::ratio(double (*m)(double, double))
   return b;
 }
 
+namespace {
+  string readTexLogErrors(const string& prefix)
+  {
+    string dir=stripFile(prefix);
+    string logpath=dir+"texput.log";
+    ifstream logfile(logpath.c_str());
+    if(!logfile) return "";
+
+    string line;
+    string errors;
+    const size_t maxLines=5;
+    size_t count=0;
+
+    while(getline(logfile,line) && count < maxLines) {
+      if(line.find("! ") != string::npos ||
+         line.find("Error:") != string::npos ||
+         line.find("Fatal error") != string::npos ||
+         line.find("!Emergency stop") != string::npos) {
+        if(!errors.empty()) errors += "\n";
+        errors += line;
+        ++count;
+      }
+    }
+    return errors;
+  }
+}
+
 void texinit()
 {
   drawElement::lastpen=pen(initialpen);
@@ -454,6 +481,16 @@ int opentex(const string& texname, const string& prefix, bool dvi)
       cmd[1]=context ? "--scrollmode" : "\\scrollmode\\input";
       System(cmd,0);
     }
+    if(context && !oldPath.empty())
+      setPath(oldPath.c_str());
+    ostringstream msg;
+    msg << "LaTeX compilation failed (engine: " << getSetting<string>("tex") << ")";
+    string logErrors=readTexLogErrors(prefix);
+    if(!logErrors.empty())
+      msg << ":\n" << logErrors;
+    else
+      msg << ". Ensure LaTeX is installed and the generated .tex file compiles.";
+    reportError(msg);
   }
   if(context && !oldPath.empty())
     setPath(oldPath.c_str());
@@ -510,6 +547,11 @@ bool picture::texprocess(const string& texname, const string& outname,
         status=System(cmd,0,true,"dvisvgm");
         if(!oldPath.empty())
           setPath(oldPath.c_str());
+        if(status != 0) {
+          ostringstream msg;
+          msg << "dvisvgm failed to convert DVI to SVG (exit code " << status << ")";
+          reportError(msg);
+        }
         if(!keep)
           unlink(dviname.c_str());
       } else {
@@ -548,6 +590,11 @@ bool picture::texprocess(const string& texname, const string& outname,
           cmd.push_back("-o"+psname);
           cmd.push_back(dviname);
           status=System(cmd,0,true,"dvips");
+          if(status != 0) {
+            ostringstream msg;
+            msg << "dvips failed to convert DVI to PS (exit code " << status << ")";
+            reportError(msg);
+          }
           if(status == 0) {
             ifstream fin(psname.c_str());
             psfile fout(outname,false);
@@ -854,17 +901,38 @@ bool picture::postprocess(const string& prename, const string& outname,
         status=renameOverwrite(prename.c_str(),outname.c_str());
         if(status != 0)
           reportError("Cannot rename "+prename+" to "+outname+": check directory permissions and that the source file exists");
-      } else status=epstopdf(prename,outname);
+      } else {
+        status=epstopdf(prename,outname);
+        if(status != 0) {
+          ostringstream msg;
+          msg << "Ghostscript failed to convert EPS to PDF (exit code " << status << ")";
+          reportError(msg);
+        }
+      }
     } else if(epsformat) {
       if(svg) {
         string psname=stripExt(prename);
         status=pdftoeps(prename,psname+"%d.ps",false);
-        if(status != 0) return false;
+        if(status != 0) {
+          ostringstream msg;
+          msg << "Ghostscript failed to convert PDF to PS (exit code " << status << ")";
+          reportError(msg);
+        }
         status=epstosvg(stripDir(psname),outname,pagecount());
-        if(status != 0) return false;
+        if(status != 0) {
+          ostringstream msg;
+          msg << "dvisvgm failed to convert PS to SVG (exit code " << status << ")";
+          reportError(msg);
+        }
         epsformat=false;
-      } else
+      } else {
         status=pdftoeps(prename,outname);
+        if(status != 0) {
+          ostringstream msg;
+          msg << "Ghostscript failed to convert PDF to EPS (exit code " << status << ")";
+          reportError(msg);
+        }
+      }
     } else {
       double render = settings::getSetting<double>("render");
       if (render < 0) // For backwards compatibility
@@ -888,6 +956,11 @@ bool picture::postprocess(const string& prename, const string& outname,
         cmd.push_back("-dGraphicsAlphaBits=4");
         cmd.push_back(prename);
         status=System(cmd,0,true,"gs","Ghostscript");
+        if(status != 0) {
+          ostringstream msg;
+          msg << "Ghostscript (PNG rasterization) failed (exit code " << status << ")";
+          reportError(msg);
+        }
       } else if(!svg && !xasy) {
         double expand=1.0;
         if(antialias > 0)
@@ -907,6 +980,11 @@ bool picture::postprocess(const string& prename, const string& outname,
           cmd.push_back("-flatten");
         cmd.push_back(outputformat+":"+outname);
         status=System(cmd,0,true,"convert");
+        if(status != 0) {
+          ostringstream msg;
+          msg << "ImageMagick convert failed (exit code " << status << ")";
+          reportError(msg);
+        }
       }
     }
     if(!getSetting<bool>("keep"))
@@ -1356,7 +1434,13 @@ bool picture::shipout(picture *preamble, const string& Prefix,
     if(Labels) {
       tex->resetpen();
       if(pdf && !b.empty) {
-        status=(epstopdf(psname,pdfname) == 0);
+        int epstatus=epstopdf(psname,pdfname);
+        if(epstatus != 0) {
+          ostringstream msg;
+          msg << "Ghostscript failed to convert EPS to PDF (exit code " << epstatus << ")";
+          reportError(msg);
+        }
+        status=(epstatus == 0);
         if(!keep) unlink(psname.c_str());
       }
 
@@ -1413,7 +1497,7 @@ bool picture::shipout(picture *preamble, const string& Prefix,
     }
   }
 
-  if(!status) reportError("shipout failed - ensure LaTeX and Ghostscript are installed, or try -tex none -f eps");
+  if(!status) reportError("shipout failed - an unexpected error occurred during output generation. See prior diagnostic messages.");
 
   if(!texengineSave.empty()) Setting("tex")=texengineSave;
 
