@@ -111,7 +111,7 @@ ENV HTTP_PROXY="" \
 # ── 3. Examples + configure ─────────────────────────────────────────
 COPY examples/ /home/coder/workspace/examples/
 
-RUN mkdir -p /home/coder/.local/share/code-server/User \
+RUN mkdir -p /home/coder/.local/share/code-server/User /root/.local/share/code-server/Machine \
     && printf '{\n  "asymptote.asyPath": "/usr/local/bin/asy",\n  "asymptote.searchPaths": ["/usr/local/share/asymptote/"],\n  "asymptote.compile.autoCompile": true,\n  "asymptote.compile.openPreview": true,\n  "asymptote.compile.outputFormat": "svg",\n  "asymptote.compile.extraArgs": ["-pngdriver=pngalpha"],\n  "files.autoSave": "afterDelay"\n}\n' \
          > /root/.local/share/code-server/Machine/settings.json
 
