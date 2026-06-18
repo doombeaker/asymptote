@@ -20,10 +20,14 @@ RUN sed -i \
        libxinerama1 libxcursor1 libglu1-mesa libwayland-client0 \
        libtirpc3 libstdc++6 libgcc-s1 zlib1g \
        ghostscript \
+       dvisvgm \
        texlive-base \
+       texlive-xetex \
+       texlive-lang-chinese \
        texlive-latex-base \
        texlive-latex-extra \
        texlive-plain-generic \
+       texlive-fonts-recommended \
        texinfo \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,4 +35,5 @@ COPY cmake-build-linux/release/asy /usr/local/bin/asy
 COPY cmake-build-linux/release/base /usr/local/share/asymptote/
 
 ENV ASYMPTOTE_SYSDIR=/usr/local/share/asymptote
-ENTRYPOINT ["asy"]
+WORKDIR /root
+ENTRYPOINT ["/bin/bash"]

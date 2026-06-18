@@ -2,7 +2,7 @@
 # Web-based VS Code + AsyLsp extension + asy runtime + examples
 #
 # Build (from repository root):
-#   docker build -t asy-online -f asymptote/Dockerfile.online asymptote/
+#   docker build -t asy-online -f Dockerfile.online .
 #
 # Run:
 #   docker run --rm -p 8080:8080 asy-online
@@ -14,11 +14,26 @@
 
 FROM ubuntu:22.04
 
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
 ARG http_proxy
 ARG https_proxy
+ARG NO_PROXY
+ARG no_proxy
+ARG OPENCODE_VERSION=1.17.7
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    HTTP_PROXY=${HTTP_PROXY} \
+    HTTPS_PROXY=${HTTPS_PROXY} \
+    http_proxy=${http_proxy} \
+    https_proxy=${https_proxy} \
+    NO_PROXY="${NO_PROXY},mirrors.aliyun.com" \
+    no_proxy="${no_proxy},mirrors.aliyun.com"
 
 # ── 1. Runtime deps + code-server + extension (single RUN) ──────────
-RUN sed -i \
+#    BuildKit cache mount: reuse downloaded .deb packages across builds
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    sed -i \
       -e 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' \
       -e 's|http://security.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' \
       /etc/apt/sources.list \
@@ -29,23 +44,55 @@ RUN sed -i \
        ghostscript \
        dvisvgm \
        texlive-base \
+       texlive-xetex \
+       texlive-lang-chinese \
        texlive-latex-base \
        texlive-latex-extra \
        texlive-plain-generic \
+       texlive-fonts-recommended \
        texinfo \
-       curl ca-certificates \
+       curl ca-certificates git \
     && curl -fsSL https://github.com/coder/code-server/releases/download/v4.123.0/code-server_4.123.0_amd64.deb \
          -o /tmp/code-server.deb \
     && dpkg -i /tmp/code-server.deb \
     && curl -fsSL --compressed "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/asy/vsextensions/asymptote-lsp/latest/vspackage" \
          -o /tmp/asymptote-lsp.vsix \
     && code-server --install-extension /tmp/asymptote-lsp.vsix \
-    && apt-get purge -y curl && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/* /tmp/code-server.deb /tmp/asymptote-lsp.vsix \
+    && rm -f /tmp/code-server.deb /tmp/asymptote-lsp.vsix \
     && rm -rf /usr/lib/code-server/lib/vscode/extensions/copilot \
               /usr/lib/code-server/lib/vscode/extensions/mermaid-markdown-features \
     && find /root/.local/share/code-server/extensions -name "*.d.ts" -delete \
-    && find /root/.local/share/code-server/extensions -name "*.map"  -delete
+    && find /root/.local/share/code-server/extensions -name "*.map"  -delete \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/share/doc /usr/share/bug /usr/share/man \
+    && find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en*' -exec rm -rf {} + \
+    && rm -f /usr/lib/code-server/lib/vscode/resources/app/node_modules/vs/base/test/*
+
+# ── 1b. Install opencode agent ──────────────────────────────────────
+# Intentionally kept in a separate RUN so that updates to the agent
+# do not invalidate the heavy apt layer above.
+RUN OPENCODE_TAG="v${OPENCODE_VERSION}" \
+    && for i in 1 2 3 4 5; do \
+         echo "==> opencode download attempt $i/5 (tag: ${OPENCODE_TAG})"; \
+         curl -fsSL "https://github.com/anomalyco/opencode/releases/download/${OPENCODE_TAG}/opencode-linux-x64.tar.gz" \
+           -o /tmp/opencode.tar.gz && break; \
+         echo "download failed, retrying in 10s..."; sleep 10; \
+       done \
+    && test -f /tmp/opencode.tar.gz || { echo "ERROR: opencode download failed after 5 attempts"; exit 1; } \
+    && tar -xzf /tmp/opencode.tar.gz -C /usr/local/bin/ opencode \
+    && chmod +x /usr/local/bin/opencode \
+    && rm -f /tmp/opencode.tar.gz
+
+# ── 1c. Pre-install asymptote skill for opencode ────────────────────
+# Separate RUN so that skill updates are cached independently.
+RUN mkdir -p /root/.config/opencode/skills \
+    && for i in 1 2 3 4 5; do \
+         echo "==> asymptote-skill clone attempt $i/5"; \
+         git clone --depth 1 https://github.com/doombeaker/asymptote-skill \
+           /root/.config/opencode/skills/asymptote && break; \
+         echo "clone failed, retrying in 10s..."; sleep 10; \
+       done \
+    && test -d /root/.config/opencode/skills/asymptote || { echo "ERROR: asymptote-skill clone failed after 5 attempts"; exit 1; }
 
 # ── 2. Asy binary + base files ──────────────────────────────────────
 COPY cmake-build-linux/release/asy /usr/local/bin/asy
@@ -53,12 +100,20 @@ COPY cmake-build-linux/release/base /usr/local/share/asymptote/
 
 ENV ASYMPTOTE_SYSDIR=/usr/local/share/asymptote
 
+# ── Clear proxy so runtime does not fail when proxy is gone ────
+ENV HTTP_PROXY="" \
+    HTTPS_PROXY="" \
+    http_proxy="" \
+    https_proxy="" \
+    NO_PROXY="" \
+    no_proxy=""
+
 # ── 3. Examples + configure ─────────────────────────────────────────
 COPY examples/ /home/coder/workspace/examples/
 
 RUN mkdir -p /home/coder/.local/share/code-server/User \
-    && printf '{\n  "asymptote.asyPath": "/usr/local/bin/asy",\n  "asymptote.compile.autoCompile": true,\n  "asymptote.compile.openPreview": true,\n  "asymptote.compile.outputFormat": "svg",\n  "asymptote.compile.extraArgs": ["-pngdriver=pngalpha"],\n  "files.autoSave": "afterDelay"\n}\n' \
-         > /home/coder/.local/share/code-server/User/settings.json
+    && printf '{\n  "asymptote.asyPath": "/usr/local/bin/asy",\n  "asymptote.searchPaths": ["/usr/local/share/asymptote/"],\n  "asymptote.compile.autoCompile": true,\n  "asymptote.compile.openPreview": true,\n  "asymptote.compile.outputFormat": "svg",\n  "asymptote.compile.extraArgs": ["-pngdriver=pngalpha"],\n  "files.autoSave": "afterDelay"\n}\n' \
+         > /root/.local/share/code-server/Machine/settings.json
 
 WORKDIR /home/coder/workspace
 
