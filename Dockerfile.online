@@ -85,14 +85,16 @@ RUN OPENCODE_TAG="v${OPENCODE_VERSION}" \
 
 # ── 1c. Pre-install asymptote skill for opencode ────────────────────
 # Separate RUN so that skill updates are cached independently.
-RUN mkdir -p /root/.config/opencode/skills \
+RUN mkdir -p ~/.config/opencode/skills \
     && for i in 1 2 3 4 5; do \
          echo "==> asymptote-skill clone attempt $i/5"; \
          git clone --depth 1 https://github.com/doombeaker/asymptote-skill \
-           /root/.config/opencode/skills/asymptote && break; \
+           ~/.config/opencode/skills/asymptote && break; \
          echo "clone failed, retrying in 10s..."; sleep 10; \
        done \
-    && test -d /root/.config/opencode/skills/asymptote || { echo "ERROR: asymptote-skill clone failed after 5 attempts"; exit 1; }
+    && test -d ~/.config/opencode/skills/asymptote || { echo "ERROR: asymptote-skill clone failed after 5 attempts"; exit 1; } \
+    && mkdir -p ~/.asy \
+    && cp ~/.config/opencode/skills/asymptote/lib/skillutils.asy ~/.asy/
 
 # ── 2. Asy binary + base files ──────────────────────────────────────
 COPY cmake-build-linux/release/asy /usr/local/bin/asy
