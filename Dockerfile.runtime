@@ -1,13 +1,12 @@
 # Usage:
-#   docker build -f Dockerfile -t asy-runtime .
+#   docker build -f Dockerfile.runtime -t asy-runtime .
 #
-# Example run (generate PDF):
-#   docker run --rm -v "$PWD":/workdir -w /workdir asy-runtime \
-#     -noView -c 'draw(circle((0,0),1));' -f pdf output
+# Example run (asyagent server):
+#   docker run --rm -p 8787:8787 -v "$PWD/storage":/data/storage asy-runtime
 #
 # Prerequisites:
 #   cmake-build-linux/release/asy and base/ must already exist
-#   (build them first with Dockerfile.dev).
+#   (build them first with Dockerfile.builder).
 
 FROM ubuntu:22.04
 
@@ -29,11 +28,26 @@ RUN sed -i \
        texlive-plain-generic \
        texlive-fonts-recommended \
        texinfo \
+       python3 \
+       python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 COPY cmake-build-linux/release/asy /usr/local/bin/asy
 COPY cmake-build-linux/release/base /usr/local/share/asymptote/
 
-ENV ASYMPTOTE_SYSDIR=/usr/local/share/asymptote
+# Install asyagent Python package
+RUN python3 -m pip install --no-cache-dir asyagent
+
+ENV ASYMPTOTE_SYSDIR=/usr/local/share/asymptote \
+    ASYAGENT_HOST=0.0.0.0 \
+    ASYAGENT_PORT=8787 \
+    ASYAGENT_LOCAL_DIR=/data/storage \
+    PYTHONUNBUFFERED=1
+
+RUN mkdir -p /data/storage \
+    && python3 -c "import asyagent; print('asyagent', asyagent.__version__)"
+
+EXPOSE 8787
+
 WORKDIR /root
-ENTRYPOINT ["/bin/bash"]
+CMD ["python3", "-m", "asyagent"]
